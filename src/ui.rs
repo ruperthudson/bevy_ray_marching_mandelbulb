@@ -50,7 +50,7 @@ fn uniform_update_ui_system(
             ui.label("Mandelbulb Min Distance:");
             ui.add(egui::Slider::new(
                 &mut mandelbulb_uniform_resource.min_dist,
-                0.00000001..=0.1,
+                0.00000001..=0.01,
             ));
         });
         ui.horizontal(|ui| {

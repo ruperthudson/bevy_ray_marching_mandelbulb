@@ -122,6 +122,31 @@ fn calculate_base_color(iterations: f32, maxIterations: f32) -> vec3<f32> {
     return vec3<f32>(red, green, blue);
 }
 
+fn ambient_occlusion(position: vec3<f32>, normal: vec3<f32>, power: f32, max_iterations: u32, bailout: f32) -> f32 {
+    let NUM_SAMPLES: u32 = 5u; // Number of AO samples. Increase for better quality at the cost of performance.
+    let AO_STEP: f32 = 0.05; // Step size for AO samples
+    let MAX_AO_DISTANCE: f32 = 0.5; // Maximum distance to check for occlusion
+
+    var ao_sum = 0.0;
+    var ao_distance = AO_STEP;
+
+    for (var i = 0u; i < NUM_SAMPLES; i += 1u) {
+        var sample_position = position + normal * ao_distance;
+        var sample_result = mandelbulb_de(sample_position, power, max_iterations, bailout);
+        
+        if (sample_result.de < AO_STEP) {
+            ao_sum += (1.0 - sample_result.de / AO_STEP);
+        }
+
+        ao_distance += AO_STEP;
+        if (ao_distance > MAX_AO_DISTANCE) {
+            break;
+        }
+    }
+
+    return 1.0 - ao_sum / f32(NUM_SAMPLES);
+}
+
 fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
     var total_distance_traveled = 0.0;
     let NUMBER_OF_STEPS: u32 = camera.num_steps;
@@ -156,7 +181,12 @@ fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
             let specular_factor = max(dot(view_direction, reflect_direction), 0.0);
             let specular_intensity = pow(specular_factor, shininess);
             let specular = specular_color * specular_intensity;
-            let final_color = ambient + diffuse + specular;
+            var final_color = ambient + diffuse + specular;
+
+            // Apply ambient occlusion
+            let ao = ambient_occlusion(current_position, normal, power, max_iterations, bailout);
+            final_color *= ao; // Multiply the final color by the AO value
+
             return final_color;
         }
 

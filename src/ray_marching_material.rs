@@ -66,10 +66,10 @@ impl RayMarchingMaterial {
             camera_vertical: Vec3::new(0.0, 1.0, 0.0),
             aspect_ratio: 1.0,
             power: 8.0,
-            max_iterations: 16,
+            max_iterations: 8,
             bailout: 3.0,
             num_steps: 64,
-            min_dist: 0.0001,
+            min_dist: 0.002,
             max_dist: 1000.0,
         }
     }

@@ -3,11 +3,9 @@ use bevy::{
     input::mouse::MouseMotion,
     prelude::*,
     sprite::MaterialMesh2dBundle,
-    window::PrimaryWindow,
     window::WindowResized,
     window::WindowResolution,
 };
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use bevy_egui::EguiPlugin;
 
@@ -118,10 +116,10 @@ impl Default for MandelbulbUniforms {
     fn default() -> Self {
         Self {
             power: 8.0,
-            max_iterations: 16,
+            max_iterations: 8,
             bailout: 3.0,
             num_steps: 64,
-            min_dist: 0.0001,
+            min_dist: 0.002,
             max_dist: 1000.0,
         }
     }
