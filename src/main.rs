@@ -1,5 +1,9 @@
 use bevy::{
-    input::mouse::MouseMotion, prelude::*, sprite::MaterialMesh2dBundle, window::WindowResized,
+    core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    input::mouse::MouseMotion,
+    prelude::*,
+    sprite::MaterialMesh2dBundle,
+    window::WindowResized,
     window::WindowResolution,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -17,6 +21,7 @@ fn main() {
     let mut app = App::new();
 
     app.insert_resource(ClearColor(Color::rgb(0.3, 0.3, 0.3)))
+        .insert_resource(Msaa::Sample8)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(WIDTH, HEIGHT),
@@ -28,6 +33,7 @@ fn main() {
         }))
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(RayMarchingMaterialPlugin)
+        .add_plugins(TemporalAntiAliasPlugin)
         //Create the aspect ratio as a resource. Only one instance of this data is needed so a global resource was chosen
         .init_resource::<AspectRatio>()
         .add_systems(Startup, setup)

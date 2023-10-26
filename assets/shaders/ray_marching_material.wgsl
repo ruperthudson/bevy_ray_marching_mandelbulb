@@ -313,52 +313,79 @@ fn calculate_normal(current_position: vec3<f32>, power: f32, max_iterations: u32
     return normalize(normal);
 }
 
+fn calculate_base_color(iterations: f32, maxIterations: f32) -> vec3<f32> {
+    let normalized: f32 = iterations / maxIterations;
+
+    // These "magic numbers" are multipliers for the sine functions that determine the frequency of color changes.
+    // You can alter these for different color patterns.
+    let red: f32 = 0.5 + 0.5 * sin(3.14159 * 2.0 * normalized);
+    let green: f32 = 0.5 + 0.5 * sin(3.14159 * 6.0 * normalized + 0.5);
+    let blue: f32 = 0.5 + 0.5 * sin(3.14159 * 9.0 * normalized + 1.0);
+
+    return vec3<f32>(red, green, blue);
+}
+
 fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
     var total_distance_traveled = 0.0;
-    let NUMBER_OF_STEPS = 512;
-    let MINIMUM_HIT_DISTANCE = 0.0001;
-    let MAXIMUM_TRAVEL_DISTANCE = 1000.0;
+    let NUMBER_OF_STEPS: i32 = 512;
+    let MINIMUM_HIT_DISTANCE: f32 = 0.0001;
+    let MAXIMUM_TRAVEL_DISTANCE: f32 = 1000.0;
 
     // Mandelbulb specific parameters
     let power: f32 = 9.0;
     let max_iterations: u32 = 16u;
     let bailout: f32 = 3.0;
 
+    // Lighting parameters
+    let light_position = vec3<f32>(2.0, -5.0, -3.0);
+    let ambient_light_intensity: f32 = 0.01;
+    let ambient_light_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+    let specular_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+    let shininess: f32 = 20.0;
+
     for (var i = 0; i < NUMBER_OF_STEPS; i += 1) {
         let current_position = ray_origin + total_distance_traveled * ray_direction;
 
         // Using Mandelbulb distance estimator
         let result = mandelbulb_de(current_position, power, max_iterations, bailout);
-        
-        if result.de < MINIMUM_HIT_DISTANCE {
-            // We've hit the surface of the Mandelbulb; calculate normal and shading
-            let normal = calculate_normal(current_position, power, max_iterations, bailout);
-            let light_position = vec3<f32>(2.0, -5.0, -3.0);
-            let direction_to_light = normalize(light_position - current_position);
-            let diffuse_intensity = max(0.0, dot(normal, direction_to_light));
-            
-            // More complex color mapping based on iterations
-            let iter_frac = f32(result.iterations) / f32(max_iterations);
-            let red = 0.5 + 0.5 * sin(3.0 * 3.14159 * iter_frac);
-            let green = 0.5 + 0.5 * sin(6.0 * 3.14159 * iter_frac + 0.5);
-            let blue = 0.5 + 0.5 * sin(9.0 * 3.14159 * iter_frac + 1.0);
-            let base_color = vec3<f32>(red, green, blue);
 
-            // Return color based on the lighting calculation and complex coloring
-            return base_color * diffuse_intensity;
+        if result.de < MINIMUM_HIT_DISTANCE {
+            // Normal and lighting calculations at the surface point
+            let normal = calculate_normal(current_position, power, max_iterations, bailout);
+            let direction_to_light = normalize(light_position - current_position);
+
+            // Ambient lighting calculation
+            let ambient = ambient_light_color * ambient_light_intensity;
+
+            // Diffuse lighting calculation
+            let diffuse_intensity = max(0.0, dot(normal, direction_to_light));
+            let base_color = calculate_base_color(f32(result.iterations), f32(max_iterations)); // Assuming a function that calculates color based on the number of iterations
+            let diffuse = base_color * diffuse_intensity;
+
+            // Specular lighting calculation
+            let view_direction = normalize(ray_origin - current_position);
+            let reflect_direction = reflect(-direction_to_light, normal);
+            let specular_factor = max(dot(view_direction, reflect_direction), 0.0);
+            let specular_intensity = pow(specular_factor, shininess);
+            let specular = specular_color * specular_intensity;
+
+            // Combine results
+            let final_color = ambient + diffuse + specular;
+
+            return final_color;
         }
 
         if total_distance_traveled > MAXIMUM_TRAVEL_DISTANCE {
             break; 
         }
 
-        // Continue marching by the distance estimated
-        total_distance_traveled += result.de;
+        total_distance_traveled += result.de; // Continue marching
     } 
 
-    // Missed everything; return background color
+    // Return background color if there's no hit
     return vec3<f32>(0.0, 0.0, 0.0);
 }
+
 
 @fragment
 fn fragment(in: FragmentIn) -> @location(0) vec4<f32> {
