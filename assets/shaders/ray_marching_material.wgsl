@@ -4,6 +4,12 @@ struct Camera {
     horizontal: vec3<f32>,
     vertical: vec3<f32>,
     aspect_ratio: f32,
+    power: f32,
+    max_iterations: u32,
+    bailout: f32,
+    num_steps: u32,
+    min_dist: f32,
+    max_dist: f32,
 };
 
 struct Globals {
@@ -42,7 +48,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = vec4(vertex.position, 1.0);
-    out.uv_coords = vertex.uv_coords * 2.0 - 1.0;
+    out.uv_coords = (vertex.uv_coords * 2.0 - 1.0) / 2.0;
     out.uv_coords.x *= camera.aspect_ratio;
     return out;
 }
@@ -118,23 +124,23 @@ fn calculate_base_color(iterations: f32, maxIterations: f32) -> vec3<f32> {
 
 fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
     var total_distance_traveled = 0.0;
-    let NUMBER_OF_STEPS: i32 = 16;
-    let MINIMUM_HIT_DISTANCE: f32 = 0.0001;
-    let MAXIMUM_TRAVEL_DISTANCE: f32 = 1000.0;
+    let NUMBER_OF_STEPS: u32 = camera.num_steps;
+    let MINIMUM_HIT_DISTANCE: f32 = camera.min_dist;
+    let MAXIMUM_TRAVEL_DISTANCE: f32 = camera.max_dist;
 
     // Mandelbulb specific parameters
-    let power: f32 = 9.0;
-    let max_iterations: u32 = 16u;
-    let bailout: f32 = 3.0;
+    let power: f32 = camera.power;
+    let max_iterations: u32 = camera.max_iterations;
+    let bailout: f32 = camera.bailout;
 
     // Lighting parameters
     let light_position = vec3<f32>(2.0, -5.0, -3.0);
-    let ambient_light_intensity: f32 = 0.01;
+    let ambient_light_intensity: f32 = 0.0001;
     let ambient_light_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
     let specular_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
-    let shininess: f32 = 20.0;
+    let shininess: f32 = 10.0;
 
-    for (var i = 0; i < NUMBER_OF_STEPS; i += 1) {
+    for (var i = 0u; i < NUMBER_OF_STEPS; i += 1u) {
         let current_position = ray_origin + total_distance_traveled * ray_direction;
         let result = mandelbulb_de(current_position, power, max_iterations, bailout);
 

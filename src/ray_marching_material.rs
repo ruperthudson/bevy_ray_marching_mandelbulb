@@ -1,3 +1,4 @@
+use crate::MandelbulbUniforms;
 use bevy::{
     prelude::*,
     reflect::{TypePath, TypeUuid},
@@ -42,6 +43,18 @@ pub struct RayMarchingMaterial {
     pub camera_vertical: Vec3,
     #[uniform(0)]
     pub aspect_ratio: f32,
+    #[uniform(0)]
+    pub power: f32,
+    #[uniform(0)]
+    pub max_iterations: u32,
+    #[uniform(0)]
+    pub bailout: f32,
+    #[uniform(0)]
+    pub num_steps: u32,
+    #[uniform(0)]
+    pub min_dist: f32,
+    #[uniform(0)]
+    pub max_dist: f32,
 }
 
 impl RayMarchingMaterial {
@@ -52,6 +65,12 @@ impl RayMarchingMaterial {
             camera_horizontal: Vec3::new(1.0, 0.0, 0.0),
             camera_vertical: Vec3::new(0.0, 1.0, 0.0),
             aspect_ratio: 1.0,
+            power: 8.0,
+            max_iterations: 16,
+            bailout: 3.0,
+            num_steps: 64,
+            min_dist: 0.0001,
+            max_dist: 1000.0,
         }
     }
 }
@@ -76,6 +95,12 @@ struct RayMarchingMaterialUniformData {
     camera_horizontal: Vec3,
     camera_vertical: Vec3,
     apsect_ratio: f32,
+    power: f32,
+    max_iterations: u32,
+    bailout: f32,
+    num_steps: u32,
+    min_dist: f32,
+    max_dist: f32,
 }
 
 //Move information from the "Game World" to the "Render World"
@@ -83,6 +108,7 @@ fn extract_raymarching_material(
     mut commands: Commands,
     ray_marching_query: Extract<Query<(Entity, &Handle<RayMarchingMaterial>)>>,
     aspect_ratio_resource: Extract<Res<AspectRatio>>,
+    mandelbulb_uniform_resource: Extract<Res<MandelbulbUniforms>>,
     camera_query: Extract<Query<&Transform, With<Camera2d>>>,
 ) {
     for (entity, material_handle) in ray_marching_query.iter() {
@@ -96,6 +122,14 @@ fn extract_raymarching_material(
     commands.insert_resource(AspectRatio {
         aspect_ratio: aspect_ratio_resource.aspect_ratio,
     });
+    commands.insert_resource(MandelbulbUniforms {
+        power: mandelbulb_uniform_resource.power,
+        max_iterations: mandelbulb_uniform_resource.max_iterations,
+        bailout: mandelbulb_uniform_resource.bailout,
+        num_steps: mandelbulb_uniform_resource.num_steps,
+        min_dist: mandelbulb_uniform_resource.min_dist,
+        max_dist: mandelbulb_uniform_resource.max_dist,
+    });
 }
 
 //Update the buffers with the data taken from the "Game World" and sent to the "Render World" so they can be used by the GPU
@@ -104,6 +138,7 @@ fn prepare_raymarching_material(
     material_query: Query<(&Transform, &Handle<RayMarchingMaterial>)>,
     render_queue: Res<RenderQueue>,
     aspect_ratio_resource: Res<AspectRatio>,
+    mandelbulb_uniform_resource: Res<MandelbulbUniforms>,
 ) {
     for (transform, material_handle) in &material_query {
         if let Some(material) = materials.get(material_handle) {
@@ -117,6 +152,12 @@ fn prepare_raymarching_material(
                             camera_horizontal: transform.right(),
                             camera_vertical: transform.up(),
                             apsect_ratio: aspect_ratio_resource.aspect_ratio,
+                            power: mandelbulb_uniform_resource.power,
+                            max_iterations: mandelbulb_uniform_resource.max_iterations,
+                            bailout: mandelbulb_uniform_resource.bailout,
+                            num_steps: mandelbulb_uniform_resource.num_steps,
+                            min_dist: mandelbulb_uniform_resource.min_dist,
+                            max_dist: mandelbulb_uniform_resource.max_dist,
                         })
                         .unwrap();
                     //Write to an offset in the buffer so the position data is not over-written
