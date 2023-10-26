@@ -50,7 +50,7 @@ fn main() {
         .init_resource::<AspectRatio>()
         .init_resource::<MandelbulbUniforms>()
         .add_systems(Startup, setup)
-        .add_systems(FixedUpdate, resize_event)
+        .add_systems(Update, resize_event)
         .add_systems(Update, process_camera_translation.in_set(CamSystemSet))
         .add_systems(Update, process_camera_rotation.in_set(CamSystemSet))
         .add_systems(Update, cursor_grab_system.in_set(CamSystemSet));
