@@ -123,7 +123,7 @@ fn calculate_base_color(iterations: f32, maxIterations: f32) -> vec3<f32> {
 }
 
 fn ambient_occlusion(position: vec3<f32>, normal: vec3<f32>, power: f32, max_iterations: u32, bailout: f32) -> f32 {
-    let NUM_SAMPLES: u32 = 5u; // Number of AO samples. Increase for better quality at the cost of performance.
+    let NUM_SAMPLES: u32 = 8u; // Number of AO samples. Increase for better quality at the cost of performance.
     let AO_STEP: f32 = 0.05; // Step size for AO samples
     let MAX_AO_DISTANCE: f32 = 0.5; // Maximum distance to check for occlusion
 
@@ -160,6 +160,13 @@ fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
 
     // Lighting parameters
     let light_position = vec3<f32>(2.0, -5.0, -3.0);
+
+    // Downward-facing light parameters
+    let down_light_position = vec3<f32>(0.0, 5.0, 0.0); // Position the light above the Mandelbulb
+    let down_light_direction = normalize(vec3<f32>(0.0, -1.0, 0.0)); // Direction pointing downwards
+    let down_light_intensity: f32 = 0.8; // Intensity of the downward-facing light
+    let down_light_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0); // White color for the downward light
+    // Ambient
     let ambient_light_intensity: f32 = 0.0001;
     let ambient_light_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
     let specular_color: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
@@ -171,7 +178,11 @@ fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
 
         if result.de < MINIMUM_HIT_DISTANCE {
             let normal = calculate_normal(current_position, power, max_iterations, bailout);
+
             let direction_to_light = normalize(light_position - current_position);
+            // Direction to the downward-facing light from the current position
+            let direction_to_down_light = normalize(down_light_position - current_position);
+
             let ambient = ambient_light_color * ambient_light_intensity;
             let diffuse_intensity = max(0.0, dot(normal, direction_to_light));
             let base_color = calculate_base_color(f32(result.iterations), f32(max_iterations));
@@ -181,7 +192,14 @@ fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
             let specular_factor = max(dot(view_direction, reflect_direction), 0.0);
             let specular_intensity = pow(specular_factor, shininess);
             let specular = specular_color * specular_intensity;
-            var final_color = ambient + diffuse + specular;
+
+            // Downward-facing light calculations
+            let down_light_diffuse_intensity = max(0.0, dot(normal, direction_to_down_light));
+            let down_diffuse = base_color * down_light_diffuse_intensity;
+
+            // Combine the two light sources (directional light + downward light)
+            var final_color = ambient + diffuse + specular + down_diffuse;
+
 
             // Apply ambient occlusion
             let ao = ambient_occlusion(current_position, normal, power, max_iterations, bailout);

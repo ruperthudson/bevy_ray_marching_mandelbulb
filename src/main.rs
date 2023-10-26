@@ -3,8 +3,7 @@ use bevy::{
     input::mouse::MouseMotion,
     prelude::*,
     sprite::MaterialMesh2dBundle,
-    window::WindowResized,
-    window::WindowResolution,
+    window::{CursorGrabMode, WindowResized, WindowResolution},
 };
 
 use bevy_egui::EguiPlugin;
@@ -201,8 +200,6 @@ fn process_camera_rotation(
         //}
     }
 }
-
-use bevy::window::CursorGrabMode;
 
 // This system grabs the mouse when the left mouse button is pressed
 // and releases it when the escape key is pressed
