@@ -250,48 +250,109 @@ fn get_distance_from_world(current_position: vec3<f32>, num_tetrahedrons: f32) -
 
 //Calculate the normal for any shape by calculating the gradient
 // We calculate the gradient by taking a small offset in each unit direction and find the difference
-fn calculate_normal(current_position: vec3<f32>) -> vec3<f32> {
-    var SMALL_STEP = vec2<f32>(0.001, 0.0);
+//fn calculate_normal(current_position: vec3<f32>) -> vec3<f32> {
+//    var SMALL_STEP = vec2<f32>(0.001, 0.0);
+//
+//    var gradient_x = get_distance_from_world(current_position + SMALL_STEP.xyy, 1.0) - get_distance_from_world(current_position - SMALL_STEP.xyy, 1.0);
+//    var gradient_y = get_distance_from_world(current_position + SMALL_STEP.yxy, 1.0) - get_distance_from_world(current_position - SMALL_STEP.yxy, 1.0);
+//    var gradient_z = get_distance_from_world(current_position + SMALL_STEP.yyx, 1.0) - get_distance_from_world(current_position - SMALL_STEP.yyx, 1.0);
+//
+//    return normalize(vec3<f32>(gradient_x, gradient_y, gradient_z));
+//}
 
-    var gradient_x = get_distance_from_world(current_position + SMALL_STEP.xyy, 1.0) - get_distance_from_world(current_position - SMALL_STEP.xyy, 1.0);
-    var gradient_y = get_distance_from_world(current_position + SMALL_STEP.yxy, 1.0) - get_distance_from_world(current_position - SMALL_STEP.yxy, 1.0);
-    var gradient_z = get_distance_from_world(current_position + SMALL_STEP.yyx, 1.0) - get_distance_from_world(current_position - SMALL_STEP.yyx, 1.0);
+struct MandelbulbResult {
+    de: f32,         // Distance Estimator value
+    iterations: u32, // Number of iterations
+};
 
-    return normalize(vec3<f32>(gradient_x, gradient_y, gradient_z));
+fn mandelbulb_de(position: vec3<f32>, power: f32, max_iterations: u32, bailout: f32) -> MandelbulbResult {
+    var z = position;
+    var dr = 1.0;
+    var r = 0.0;
+    var i: u32 = 0u;
+    for (i = 0u; i < max_iterations; i = i + 1u) {
+        r = length(z);
+        if (r > bailout) {break};
+
+        // Convert to polar coordinates
+        var theta = acos(z.z / r);
+        var phi = atan2(z.y, z.x);
+        dr =  pow(r, power - 1.0) * power * dr + 1.0;
+
+        // Scale and rotate the point
+        var zr = pow(r, power);
+        theta = theta * power;
+        phi = phi * power;
+
+        // Convert back to Cartesian coordinates
+        z = zr * vec3<f32>(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
+        z = z + position;
+    }
+    return MandelbulbResult(0.5 * log(r) * r / dr, i);
+}
+
+fn calculate_normal(current_position: vec3<f32>, power: f32, max_iterations: u32, bailout: f32) -> vec3<f32> {
+    let SMALL_STEP = 0.001; // This value might need tweaking based on your scene scale
+    let step_x = vec3<f32>(SMALL_STEP, 0.0, 0.0);
+    let step_y = vec3<f32>(0.0, SMALL_STEP, 0.0);
+    let step_z = vec3<f32>(0.0, 0.0, SMALL_STEP);
+
+    // Here, we calculate the distance from the mandelbulb surface in each axis direction.
+    // Note: the distance estimator function mandelbulb_de replaces get_distance_from_world.
+    let gradient_x = mandelbulb_de(current_position + step_x, power, max_iterations, bailout).de 
+                   - mandelbulb_de(current_position - step_x, power, max_iterations, bailout).de;
+    let gradient_y = mandelbulb_de(current_position + step_y, power, max_iterations, bailout).de 
+                   - mandelbulb_de(current_position - step_y, power, max_iterations, bailout).de;
+    let gradient_z = mandelbulb_de(current_position + step_z, power, max_iterations, bailout).de 
+                   - mandelbulb_de(current_position - step_z, power, max_iterations, bailout).de;
+
+    // Construct the normal from the gradient components and normalize it
+    let normal = vec3<f32>(gradient_x, gradient_y, gradient_z);
+    return normalize(normal);
 }
 
 fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
     var total_distance_traveled = 0.0;
-    var NUMBER_OF_STEPS = 256;
-    var MINIMUM_HIT_DISTANCE = 0.00001;
-    var MAXIMUM_TRAVEL_DISTANCE = 100000.0;
+    let NUMBER_OF_STEPS = 4096;
+    let MINIMUM_HIT_DISTANCE = 0.00001;
+    let MAXIMUM_TRAVEL_DISTANCE = 100000.0;
 
-    for(var i = 0; i < NUMBER_OF_STEPS; i++) {
-        var current_position = ray_origin + total_distance_traveled * ray_direction;
+    // Mandelbulb specific parameters
+    let power: f32 = 8.0; 
+    let max_iterations: u32 = 16u; 
+    let bailout: f32 = 2.0;
 
-        var distance_to_closest = get_distance_from_world(current_position, 1.0);
+    for (var i = 0; i < NUMBER_OF_STEPS; i += 1) {
+        let current_position = ray_origin + total_distance_traveled * ray_direction;
 
-        if(distance_to_closest < MINIMUM_HIT_DISTANCE) {
-            var normal = calculate_normal(current_position);
+        // Using Mandelbulb distance estimator
+        let result = mandelbulb_de(current_position, power, max_iterations, bailout);
+        
+        // Directly using the 'de' member from the struct for the comparison and accumulation
+        if result.de < MINIMUM_HIT_DISTANCE {
+            // We've hit the surface of the Mandelbulb; calculate normal and shading
+            let normal = calculate_normal(current_position, power, max_iterations, bailout);
+            let light_position = vec3<f32>(2.0, -5.0, -3.0);
+            let direction_to_light = normalize(light_position - current_position);
+            let diffuse_intensity = max(0.0, dot(normal, direction_to_light));
+            
+            // Color mapping based on iterations
+            let color_factor = f32(result.iterations) / f32(max_iterations);
+            let base_color = mix(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 0.0), color_factor);
 
-            var light_position = vec3<f32>(2.0, -5.0, -3.0);
-
-            var direction_to_light = normalize(current_position - light_position);
-
-            var diffuse_intensity = max(0.0, dot(normal, direction_to_light));
-
-            return vec3<f32>(1.0, 0.0, 0.0) * diffuse_intensity;
+            // Return color based on the lighting calculation and iteration-based coloring
+            return base_color * diffuse_intensity;
         }
 
-        if(total_distance_traveled > MAXIMUM_TRAVEL_DISTANCE) {
-            //No hit has occured, break out of the loop
-            break;
+        if total_distance_traveled > MAXIMUM_TRAVEL_DISTANCE {
+            break; 
         }
 
-        total_distance_traveled += distance_to_closest;
+        // Continue marching by the distance estimated
+        total_distance_traveled += result.de;
     } 
 
-    //A miss has occured so return a background color
+    // Missed everything; return background color
     return vec3<f32>(0.0, 0.0, 0.0);
 }
 
