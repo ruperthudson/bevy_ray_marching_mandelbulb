@@ -44,7 +44,8 @@ struct VertexOutput {
     @location(0) uv_coords: vec2<f32>,
 }
 
-@vertex fn vertex(vertex: Vertex) -> VertexOutput {
+@vertex
+fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = vec4(vertex.position, 1.0);
     out.uv_coords = (vertex.uv_coords * 2.0 - 1.0) / 2.0;
@@ -63,32 +64,29 @@ struct MandelbulbResult {
 
 fn mandelbulb_de(position: vec3<f32>, power: f32, max_iterations: u32, bailout: f32) -> MandelbulbResult {
     var z = position;
-    var dr = 1.0; // derivative 
-    var r = 0.0; // radius
+    var dr = 1.0;
+    var r = 0.0;
     var i: u32 = 0u;
-
-    while (i < max_iterations) {
+    for (i = 0u; i < max_iterations; i = i + 1u) {
         r = length(z);
         if (r > bailout) {
             break;
         }
 
+        // Convert to polar coordinates
         var theta = acos(z.z / r);
         var phi = atan2(z.y, z.x);
         dr =  pow(r, power - 1.0) * power * dr + 1.0;
 
-        // Polar coordinates and scale.
+        // Scale and rotate the point
         var zr = pow(r, power);
         theta = theta * power;
         phi = phi * power;
 
-        // Conversion back to Cartesian coordinates.
+        // Convert back to Cartesian coordinates
         z = zr * vec3<f32>(sin(theta) * cos(phi), sin(phi) * sin(theta), cos(theta));
         z = z + position;
-
-        i = i + 1u;
     }
-
     return MandelbulbResult(0.5 * log(r) * r / dr, i);
 }
 
