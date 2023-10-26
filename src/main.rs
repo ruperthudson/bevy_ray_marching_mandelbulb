@@ -1,5 +1,8 @@
-use bevy::{prelude::*, sprite::{MaterialMesh2dBundle}, window::WindowResized, input::mouse::MouseMotion};
-use bevy_inspector_egui::WorldInspectorPlugin;
+use bevy::{
+    input::mouse::MouseMotion, prelude::*, sprite::MaterialMesh2dBundle, window::WindowResized,
+    window::WindowResolution,
+};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod screen_space_quad;
 use crate::screen_space_quad::ScreenSpaceQuad;
@@ -7,32 +10,30 @@ use crate::screen_space_quad::ScreenSpaceQuad;
 mod ray_marching_material;
 use crate::ray_marching_material::{RayMarchingMaterial, RayMarchingMaterialPlugin};
 
-pub const WIDTH: f32 = 720.0;
-pub const HEIGHT: f32 = 720.0;
+pub const WIDTH: f32 = 3840.0;
+pub const HEIGHT: f32 = 2160.0;
 
 fn main() {
     let mut app = App::new();
 
     app.insert_resource(ClearColor(Color::rgb(0.3, 0.3, 0.3)))
-    .add_plugins(DefaultPlugins.set(WindowPlugin {
-        window: WindowDescriptor {
-            width: WIDTH,
-            height: HEIGHT,
-            title: "Ray Marching Scene".to_string(),
-            resizable: true,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(WIDTH, HEIGHT),
+                title: "Ray Marching Scene".to_string(),
+                resizable: true,
+                ..default()
+            }),
             ..default()
-        },
-        ..default()
-    }))
-    .add_plugin(WorldInspectorPlugin::new())
-    .add_plugin(RayMarchingMaterialPlugin)
-    //Create the aspect ratio as a resource. Only one instance of this data is needed so a global resource was chosen
-    .init_resource::<AspectRatio>()
-
-    .add_startup_system(setup)
-    .add_system(resize_event)
-    .add_system(process_camera_translation)
-    .add_system(process_camera_rotation);
+        }))
+        .add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(RayMarchingMaterialPlugin)
+        //Create the aspect ratio as a resource. Only one instance of this data is needed so a global resource was chosen
+        .init_resource::<AspectRatio>()
+        .add_startup_system(setup)
+        .add_system(resize_event)
+        .add_system(process_camera_translation)
+        .add_system(process_camera_rotation);
 
     app.run();
 }
@@ -43,7 +44,7 @@ fn setup(
     mut materials: ResMut<Assets<RayMarchingMaterial>>,
 ) {
     commands.spawn(Camera2dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 5.0),
+        transform: Transform::from_xyz(0.0, 0.0, 3.0),
         ..default()
     });
     commands.spawn(MaterialMesh2dBundle {
@@ -60,7 +61,7 @@ pub struct AspectRatio {
 }
 
 //Handle a window resize event to set the AspectRatio so it can be updated in the uniform that is sent to our shader
-fn resize_event( 
+fn resize_event(
     mut resize_reader: EventReader<WindowResized>,
     mut aspect_ratio_resource: ResMut<AspectRatio>,
 ) {
@@ -72,7 +73,7 @@ fn resize_event(
 fn process_camera_translation(
     keys: Res<Input<KeyCode>>,
     mut camera_query: Query<&mut Transform, With<Camera2d>>,
-    time: Res<Time>, 
+    time: Res<Time>,
 ) {
     const SPEED: f32 = 1.0;
     for mut transform in camera_query.iter_mut() {
@@ -104,7 +105,7 @@ fn process_camera_rotation(
     mut motion_event: EventReader<MouseMotion>,
     mouse_buttons: Res<Input<MouseButton>>,
     mut camera_query: Query<&mut Transform, With<Camera2d>>,
-    time: Res<Time>
+    time: Res<Time>,
 ) {
     for event in motion_event.iter() {
         const ROTATION_SPEED: f32 = 0.1;
@@ -116,4 +117,3 @@ fn process_camera_rotation(
         }
     }
 }
-

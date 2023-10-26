@@ -55,8 +55,6 @@ fn get_distance_from_sphere(current_position: vec3<f32>, sphere_center: vec3<f32
     return length(current_position - sphere_center) - radius;
 }
 
-// Constant representing a very large number, akin to "infinity."
-let VERY_LARGE_NUMBER: f32 = 1e30;
 
 // Function to calculate the shortest distance between a point and a line segment.
 fn point_to_line_segment_distance(pnt: vec3<f32>, end1: vec3<f32>, end2: vec3<f32>) -> f32 {
@@ -131,6 +129,8 @@ fn get_distance_to_tetrahedron(pnt: vec3<f32>, center: vec3<f32>) -> f32 {
         array<vec3<f32>, 3>(v1, v3, v2)
     );
 
+    // Constant representing a very large number, akin to "infinity."
+    let VERY_LARGE_NUMBER: f32 = 1e30;
     var min_distance = VERY_LARGE_NUMBER; // Start with a very high distance that will be lowered during the checks.
 
     // Manually unroll the loop and calculate the minimum distance.
@@ -313,14 +313,14 @@ fn calculate_normal(current_position: vec3<f32>, power: f32, max_iterations: u32
 
 fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
     var total_distance_traveled = 0.0;
-    let NUMBER_OF_STEPS = 4096;
-    let MINIMUM_HIT_DISTANCE = 0.00001;
-    let MAXIMUM_TRAVEL_DISTANCE = 100000.0;
+    let NUMBER_OF_STEPS = 512;
+    let MINIMUM_HIT_DISTANCE = 0.0001;
+    let MAXIMUM_TRAVEL_DISTANCE = 1000.0;
 
     // Mandelbulb specific parameters
-    let power: f32 = 8.0; 
-    let max_iterations: u32 = 16u; 
-    let bailout: f32 = 2.0;
+    let power: f32 = 9.0;
+    let max_iterations: u32 = 16u;
+    let bailout: f32 = 3.0;
 
     for (var i = 0; i < NUMBER_OF_STEPS; i += 1) {
         let current_position = ray_origin + total_distance_traveled * ray_direction;
@@ -328,7 +328,6 @@ fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
         // Using Mandelbulb distance estimator
         let result = mandelbulb_de(current_position, power, max_iterations, bailout);
         
-        // Directly using the 'de' member from the struct for the comparison and accumulation
         if result.de < MINIMUM_HIT_DISTANCE {
             // We've hit the surface of the Mandelbulb; calculate normal and shading
             let normal = calculate_normal(current_position, power, max_iterations, bailout);
@@ -336,11 +335,14 @@ fn ray_march(ray_origin: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
             let direction_to_light = normalize(light_position - current_position);
             let diffuse_intensity = max(0.0, dot(normal, direction_to_light));
             
-            // Color mapping based on iterations
-            let color_factor = f32(result.iterations) / f32(max_iterations);
-            let base_color = mix(vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(1.0, 0.0, 0.0), color_factor);
+            // More complex color mapping based on iterations
+            let iter_frac = f32(result.iterations) / f32(max_iterations);
+            let red = 0.5 + 0.5 * sin(3.0 * 3.14159 * iter_frac);
+            let green = 0.5 + 0.5 * sin(6.0 * 3.14159 * iter_frac + 0.5);
+            let blue = 0.5 + 0.5 * sin(9.0 * 3.14159 * iter_frac + 1.0);
+            let base_color = vec3<f32>(red, green, blue);
 
-            // Return color based on the lighting calculation and iteration-based coloring
+            // Return color based on the lighting calculation and complex coloring
             return base_color * diffuse_intensity;
         }
 
