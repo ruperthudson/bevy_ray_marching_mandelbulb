@@ -26,14 +26,14 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(WorldInspectorPlugin::new())
-        .add_plugin(RayMarchingMaterialPlugin)
+        .add_plugins(WorldInspectorPlugin::new())
+        .add_plugins(RayMarchingMaterialPlugin)
         //Create the aspect ratio as a resource. Only one instance of this data is needed so a global resource was chosen
         .init_resource::<AspectRatio>()
-        .add_startup_system(setup)
-        .add_system(resize_event)
-        .add_system(process_camera_translation)
-        .add_system(process_camera_rotation);
+        .add_systems(Startup, setup)
+        .add_systems(Update, resize_event)
+        .add_systems(Update, process_camera_translation)
+        .add_systems(Update, process_camera_rotation);
 
     app.run();
 }

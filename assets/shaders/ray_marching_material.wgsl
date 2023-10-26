@@ -272,7 +272,9 @@ fn mandelbulb_de(position: vec3<f32>, power: f32, max_iterations: u32, bailout: 
     var i: u32 = 0u;
     for (i = 0u; i < max_iterations; i = i + 1u) {
         r = length(z);
-        if (r > bailout) {break};
+        if (r > bailout) {
+            break;
+        }
 
         // Convert to polar coordinates
         var theta = acos(z.z / r);

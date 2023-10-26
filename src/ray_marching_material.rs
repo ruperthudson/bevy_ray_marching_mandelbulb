@@ -1,10 +1,10 @@
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         render_resource::{encase, AsBindGroup, OwnedBindingResource, ShaderRef, ShaderType},
         renderer::RenderQueue,
-        Extract, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
     sprite::{Material2d, Material2dPlugin, RenderMaterials2d},
 };
@@ -15,21 +15,20 @@ pub struct RayMarchingMaterialPlugin;
 
 impl Plugin for RayMarchingMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(Material2dPlugin::<RayMarchingMaterial>::default());
+        app.add_plugins(Material2dPlugin::<RayMarchingMaterial>::default());
 
         //Add our custom extract and prepare systems to the app
         app.sub_app_mut(RenderApp)
-            .add_system(
-                extract_raymarching_material
-                    .in_set(RenderSet::ExtractCommands)
-                    .in_schedule(ExtractSchedule),
-            )
-            .add_system(prepare_raymarching_material.in_set(RenderSet::Prepare));
+            .add_systems(ExtractSchedule, extract_raymarching_material)
+            .add_systems(
+                Render,
+                prepare_raymarching_material.in_set(RenderSet::Prepare),
+            );
     }
 }
 
 //New material created to setup custom shader
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "084f230a-b958-4fc4-8aaf-ca4d4eb16412"]
 pub struct RayMarchingMaterial {
     //Set the uniform at binding 0 to have the following information - connects to Camera struct in ray_marching_material.wgsl
@@ -121,10 +120,9 @@ fn prepare_raymarching_material(
                         })
                         .unwrap();
                     //Write to an offset in the buffer so the position data is not over-written
-                    render_queue.write_buffer(current_buffer, 0, buffer.as_ref());
+                    render_queue.write_buffer(&current_buffer, 0, buffer.as_ref());
                 }
             }
         }
     }
 }
-
