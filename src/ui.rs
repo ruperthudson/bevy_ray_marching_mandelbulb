@@ -60,5 +60,12 @@ fn uniform_update_ui_system(
                 10.0..=10000.0,
             ));
         });
+        ui.horizontal(|ui| {
+            ui.label("Mandelbulb Zoom:");
+            ui.add(egui::Slider::new(
+                &mut mandelbulb_uniform_resource.zoom,
+                1.0..=10.0,
+            ));
+        });
     });
 }

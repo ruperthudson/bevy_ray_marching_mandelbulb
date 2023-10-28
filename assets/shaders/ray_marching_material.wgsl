@@ -10,6 +10,7 @@ struct Camera {
     num_steps: u32,
     min_dist: f32,
     max_dist: f32,
+    zoom: f32,
 };
 
 struct Globals {
@@ -48,7 +49,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = vec4(vertex.position, 1.0);
-    out.uv_coords = (vertex.uv_coords * 2.0 - 1.0) / 2.0;
+    out.uv_coords = (vertex.uv_coords * 2.0 - 1.0) / camera.zoom;
     out.uv_coords.x *= camera.aspect_ratio;
     return out;
 }

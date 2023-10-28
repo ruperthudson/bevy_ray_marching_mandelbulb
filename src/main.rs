@@ -110,6 +110,7 @@ pub struct MandelbulbUniforms {
     num_steps: u32,
     min_dist: f32,
     max_dist: f32,
+    zoom: f32,
 }
 impl Default for MandelbulbUniforms {
     fn default() -> Self {
@@ -120,6 +121,7 @@ impl Default for MandelbulbUniforms {
             num_steps: 64,
             min_dist: 0.002,
             max_dist: 1000.0,
+            zoom: 1.0,
         }
     }
 }

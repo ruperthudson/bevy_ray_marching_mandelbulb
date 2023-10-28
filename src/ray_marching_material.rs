@@ -55,6 +55,8 @@ pub struct RayMarchingMaterial {
     pub min_dist: f32,
     #[uniform(0)]
     pub max_dist: f32,
+    #[uniform(0)]
+    pub zoom: f32,
 }
 
 impl RayMarchingMaterial {
@@ -71,6 +73,7 @@ impl RayMarchingMaterial {
             num_steps: 64,
             min_dist: 0.002,
             max_dist: 1000.0,
+            zoom: 1.0,
         }
     }
 }
@@ -101,6 +104,7 @@ struct RayMarchingMaterialUniformData {
     num_steps: u32,
     min_dist: f32,
     max_dist: f32,
+    zoom: f32,
 }
 
 //Move information from the "Game World" to the "Render World"
@@ -129,6 +133,7 @@ fn extract_raymarching_material(
         num_steps: mandelbulb_uniform_resource.num_steps,
         min_dist: mandelbulb_uniform_resource.min_dist,
         max_dist: mandelbulb_uniform_resource.max_dist,
+        zoom: mandelbulb_uniform_resource.zoom,
     });
 }
 
@@ -158,6 +163,7 @@ fn prepare_raymarching_material(
                             num_steps: mandelbulb_uniform_resource.num_steps,
                             min_dist: mandelbulb_uniform_resource.min_dist,
                             max_dist: mandelbulb_uniform_resource.max_dist,
+                            zoom: mandelbulb_uniform_resource.zoom,
                         })
                         .unwrap();
                     //Write to an offset in the buffer so the position data is not over-written
