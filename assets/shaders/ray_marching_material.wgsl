@@ -111,16 +111,45 @@ fn calculate_normal(current_position: vec3<f32>, power: f32, max_iterations: u32
     return normalize(normal);
 }
 
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
+    let c: f32 = v * s;
+    let x: f32 = c * (1.0 - abs((h / 60.0) % 2.0 - 1.0));
+    let m: f32 = v - c;
+    var rgb: vec3<f32>;
+
+    if (h < 60.0) {
+        rgb = vec3<f32>(c, x, 0.0);
+    } else if (h < 120.0) {
+        rgb = vec3<f32>(x, c, 0.0);
+    } else if (h < 180.0) {
+        rgb = vec3<f32>(0.0, c, x);
+    } else if (h < 240.0) {
+        rgb = vec3<f32>(0.0, x, c);
+    } else if (h < 300.0) {
+        rgb = vec3<f32>(x, 0.0, c);
+    } else {
+        rgb = vec3<f32>(c, 0.0, x);
+    }
+
+    return rgb + m;
+}
+
 fn calculate_base_color(iterations: f32, maxIterations: f32) -> vec3<f32> {
     let normalized: f32 = iterations / maxIterations;
 
-    // These "magic numbers" are multipliers for the sine functions that determine the frequency of color changes.
-    // You can alter these for different color patterns.
-    let red: f32 = 0.5 + 0.5 * sin(3.14159 * 2.0 * normalized);
-    let green: f32 = 0.5 + 0.5 * sin(3.14159 * 6.0 * normalized + 0.5);
-    let blue: f32 = 0.5 + 0.5 * sin(3.14159 * 9.0 * normalized + 1.0);
+    // Hue
+    let hue: f32 = normalized * 360.0;
 
-    return vec3<f32>(red, green, blue);
+    // Saturation (varying between 0.5 and 1.0 using a sine wave)
+    let saturation: f32 = 0.5 + 0.5 * sin(3.14159 * 3.0 * normalized);
+
+    // Value (varying between 0.8 and 1.0 using a sine wave for more brightness variation)
+    let value: f32 = 0.8 + 0.2 * sin(3.14159 * 6.0 * normalized);
+
+    // Convert HSV to RGB (assuming this function exists in your setup)
+    let color: vec3<f32> = hsv_to_rgb(hue, saturation, value);
+
+    return color;
 }
 
 fn ambient_occlusion(position: vec3<f32>, normal: vec3<f32>, power: f32, max_iterations: u32, bailout: f32) -> f32 {
