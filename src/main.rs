@@ -20,7 +20,7 @@ use crate::ui::UIPlugin;
 pub const WIDTH: f32 = 720.0;
 pub const HEIGHT: f32 = 720.0;
 
-/// System set to allow ordering of `PanCamPlugin`
+/// System set to allow ordering of camera systems
 #[derive(Debug, Clone, Copy, SystemSet, PartialEq, Eq, Hash)]
 pub struct CamSystemSet;
 
@@ -32,13 +32,12 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(WIDTH, HEIGHT),
-                title: "Ray Marching Scene".to_string(),
+                title: "Ray Marching Mandelbulb".to_string(),
                 resizable: true,
                 ..default()
             }),
             ..default()
         }))
-        //.add_plugins(WorldInspectorPlugin::new())
         .add_plugins(RayMarchingMaterialPlugin)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
@@ -144,7 +143,7 @@ fn process_camera_translation(
     // Constants for speed and default directions.
     const SPEED: f32 = 0.5;
     for mut transform in camera_query.iter_mut() {
-        let forward: Vec3 = transform.forward(); // In Bevy, negative Z is typically "forward."
+        let forward: Vec3 = transform.forward();
         let right: Vec3 = transform.right();
         let up: Vec3 = transform.up();
 
@@ -192,14 +191,12 @@ fn process_camera_rotation(
 
     for event in motion_event.iter() {
         const ROTATION_SPEED: f32 = 0.1;
-        //if mouse_buttons.pressed(MouseButton::Right) {
         if window.cursor.grab_mode == CursorGrabMode::Locked {
             for mut transform in camera_query.iter_mut() {
                 transform.rotate_local_x(-event.delta.y * ROTATION_SPEED * time.delta_seconds());
                 transform.rotate_local_y(-event.delta.x * ROTATION_SPEED * time.delta_seconds());
             }
         }
-        //}
     }
 }
 
