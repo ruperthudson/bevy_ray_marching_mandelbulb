@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::{mesh::Indices, render_resource::PrimitiveTopology}};
+use bevy::{asset::RenderAssetUsages, prelude::*, render::{mesh::Indices, render_resource::PrimitiveTopology}};
 
 #[derive(Debug, Copy, Clone)]
 pub struct ScreenSpaceQuad {
@@ -39,8 +39,8 @@ impl From<ScreenSpaceQuad> for Mesh {
                         [1.0, 0.0],
                         [1.0,1.0]];
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(indices));
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD);
+        mesh.insert_indices(indices);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);

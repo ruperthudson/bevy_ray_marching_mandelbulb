@@ -1,4 +1,4 @@
-use crate::MandelbulbUniforms;
+use crate::ray_marching_material::RMCamera;
 use bevy::prelude::*;
 
 use bevy_egui::{egui, EguiContexts};
@@ -8,63 +8,54 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, uniform_update_ui_system);
+        app
+            // .add_systems(Startup, init_ui)
+            .add_systems(Update, uniform_update_ui_system);
     }
 }
 
+// fn init_ui(
+//     mut commands: Commands,
+// ) {
+//     commands.spawn(
+//         Node {
+
+//         }
+//     )
+// }
+
 fn uniform_update_ui_system(
     mut ctx: EguiContexts,
-    mut mandelbulb_uniform_resource: ResMut<MandelbulbUniforms>,
+    mut rm_camera: ResMut<RMCamera>,
 ) {
     let context = ctx.ctx_mut();
     egui::Window::new("Update Uniforms").show(context, |ui| {
         ui.horizontal(|ui| {
-            ui.label("Mandelbulb Power:");
-            ui.add(egui::Slider::new(
-                &mut mandelbulb_uniform_resource.power,
-                0.0..=100.0,
-            ));
-        });
-        ui.horizontal(|ui| {
             ui.label("Mandelbulb Max Iterations:");
             ui.add(egui::Slider::new(
-                &mut mandelbulb_uniform_resource.max_iterations,
+                &mut rm_camera.settings.max_iterations,
                 1..=128,
-            ));
-        });
-        ui.horizontal(|ui| {
-            ui.label("Mandelbulb Bailout:");
-            ui.add(egui::Slider::new(
-                &mut mandelbulb_uniform_resource.bailout,
-                0.0..=3.0,
-            ));
-        });
-        ui.horizontal(|ui| {
-            ui.label("Mandelbulb Num Steps:");
-            ui.add(egui::Slider::new(
-                &mut mandelbulb_uniform_resource.num_steps,
-                16..=500,
             ));
         });
         ui.horizontal(|ui| {
             ui.label("Mandelbulb Min Distance:");
             ui.add(egui::Slider::new(
-                &mut mandelbulb_uniform_resource.min_dist,
+                &mut rm_camera.settings.min_dist,
                 0.00000001..=0.01,
             ));
         });
         ui.horizontal(|ui| {
             ui.label("Mandelbulb Max Distance:");
             ui.add(egui::Slider::new(
-                &mut mandelbulb_uniform_resource.max_dist,
+                &mut rm_camera.settings.max_dist,
                 10.0..=10000.0,
             ));
         });
         ui.horizontal(|ui| {
-            ui.label("Mandelbulb Zoom:");
+            ui.label("Mandelbulb TanFov:");
             ui.add(egui::Slider::new(
-                &mut mandelbulb_uniform_resource.zoom,
-                1.0..=10.0,
+                &mut rm_camera.settings.tan_fov,
+                1.0..=100.0,
             ));
         });
     });
