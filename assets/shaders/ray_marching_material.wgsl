@@ -85,14 +85,30 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
     return rgb + m;
 }
 
-fn dist(p1: vec4<f32>, p2: vec4<f32>) -> f32 {
-    let d = p1 - p2;
-    return sqrt(dot(d, d));
+fn hyp_dot(p1: vec4<f32>, p2: vec4<f32>) -> f32 {
+    return dot(p1.xyz, p2.xyz) - p1.w * p2.w;
 }
 
-fn march_ray(origin: vec4<f32>, direction: vec4<f32>, distance: f32) -> vec4<f32> {
-    return origin + distance * direction;
+fn hyp_normalize(p: vec4<f32>) -> vec4<f32> {
+    return p / sqrt(abs(hyp_dot(p, p)));
 }
+
+fn hyp_flow(p: vec4<f32>, v: vec4<f32>, hyp_dist: f32) -> vec4<f32> {
+    return hyp_dist * p + sqrt(hyp_dist * hyp_dist - 1.0) * v; 
+}
+
+fn hyp_dist(p1: vec4<f32>, p2: vec4<f32>) -> f32 {
+    return acosh(-1.0 * hyp_dot(p1, p2));
+}
+
+// fn dist(p1: vec4<f32>, p2: vec4<f32>) -> f32 {
+//     let d = p1 - p2;
+//     return acosh(-1.0 * dot(d, d));
+// }
+
+// fn march_ray(origin: vec4<f32>, direction: vec4<f32>, distance: f32) -> vec4<f32> {
+//     return origin + distance * direction;
+// }
 
 struct Sphere {
     centre: vec4<f32>,
@@ -101,40 +117,78 @@ struct Sphere {
 }
 
 struct SDFResult {
+    pos: vec4<f32>,
+    normal: vec4<f32>,
     distance: f32,
     material_id: u32,
 }
 
 fn sphere_sdf(sphere: Sphere, p: vec4<f32>) -> f32 {
-    return dist(p, sphere.centre) - sphere.radius;
+    return hyp_dist(p, sphere.centre) - sphere.radius;
 }
 
-fn scene_sdf(p: vec4<f32>) -> SDFResult {
-    var min_dist: f32 = 1000.0;
-    var current_dist: f32;
-    var material_id: u32 = 0;
-    var sphere: Sphere;
+fn scene_sdf(pos: vec4<f32>) -> SDFResult {
+    var min_dist: f32 = camera.max_dist;
+
+    // -- Spheres --
+    var sphere_dist: f32;
+    var min_sphere: u32 = 4294967295u;
     for (var i: u32 = 0; i < arrayLength(&scene.spheres); i++) {
-        sphere = scene.spheres[i];
-        current_dist = sphere_sdf(sphere, p);
-        if current_dist < min_dist {
-            min_dist = current_dist;
-            material_id = sphere.material_id;
+        sphere_dist = sphere_sdf(scene.spheres[i], pos);
+        
+        if sphere_dist < min_dist {
+            min_dist = sphere_dist;
+            min_sphere = i;
         }
     }
-    if p.y < min_dist {
+
+    if min_sphere < 4294967295u {
+        let sphere = scene.spheres[min_sphere];
+
+        let normal = -1.0 * project_to_tangent(pos, sphere.centre - pos);
+        let material_id = sphere.material_id;
+
+    }
+
+    // -- Horocycle surface --
+    let d_y = log(pos.w + pos.y);
+    if d_y < min_dist {
         material_id = 2u;
-        min_dist = p.y;
+        min_dist = d_y;
     }
 
     return SDFResult(min_dist, material_id);
 }
 
-fn material_to_col(material_id: u32) -> vec4<f32> {
-    if material_id == 2 {
-        return vec4(0.7, 0.1, 0.3, 1.0);
+fn project_to_tangent(p: vec4<f32>, q: vec4<f32>) -> vec4<f32> {
+    let v = q + hyp_dot(p, q) * p;
+    return hyp_normalize(v);
+}
+
+fn material_to_col(material_id: u32, pos: vec4<f32>) -> vec4<f32> {
+    switch material_id {
+        case 1u: {
+            return vec4(0.0, 0.4, 1.0, 1.0);
+        }
+        case 2u: {
+            return vec4(1.0, 1.0, 0.0, 1.0);
+        }
+        case 3u: {
+            return vec4(0.1, 0.1, 0.3, 1.0);
+        }
+        case 4u: {
+            return vec4(0.5, 0.0, 0.0, 1.0);
+        }
+        case 5u: {
+            return vec4(0.0, 5.0, 0.0, 1.0);
+        }
+        case 6u: {
+            return vec4(0.0, 0.0, 0.5, 1.0);
+        }
+        default: {
+            return vec4(0.9, 0.9, 0.9, 1.0);
+        }
     }
-    return vec4(0.3, 0.4, 0.5, 1.0);
 }
 
 fn ray_march(ray_origin: vec4<f32>, ray_direction: vec4<f32>) -> vec4<f32> {
@@ -144,8 +198,8 @@ fn ray_march(ray_origin: vec4<f32>, ray_direction: vec4<f32>) -> vec4<f32> {
     for (var i: u32 = 0; i < camera.max_steps; i++) {
         current_sdf = scene_sdf(current_pos);
         
-        if current_sdf.distance < 0 {
-            return material_to_col(current_sdf.material_id);
+        if current_sdf.distance < 0.00000001 {
+            return material_to_col(current_sdf.material_id, current_pos);
         }
 
         dist += max(current_sdf.distance, camera.min_dist);
@@ -154,7 +208,7 @@ fn ray_march(ray_origin: vec4<f32>, ray_direction: vec4<f32>) -> vec4<f32> {
             return vec4(1.0, 0.0, 1.0, 1.0);
         }
 
-        current_pos = march_ray(ray_origin, ray_direction, dist);
+        current_pos = hyp_flow(ray_origin, ray_direction, cosh(dist));
     }
 
     return vec4(vec3(0.0), 1.0);
@@ -163,10 +217,10 @@ fn ray_march(ray_origin: vec4<f32>, ray_direction: vec4<f32>) -> vec4<f32> {
 @fragment
 fn fragment(in: FragmentIn) -> @location(0) vec4<f32> {
     var camera_origin = camera.position;
-    var ray_origin = camera_origin + camera.forward * 1.0 + (in.uv_coords.x * camera.right) + (in.uv_coords.y * camera.up);
-    var ray_direction = normalize(ray_origin - camera_origin);
+    var ray_direction = camera.forward * 1.0 + (in.uv_coords.x * camera.right) + (in.uv_coords.y * camera.up);
+    ray_direction = hyp_normalize(ray_direction);
 
-    var color = ray_march(ray_origin, ray_direction);
+    var color = ray_march(camera_origin, ray_direction);
 
     return vec4(color.x, color.y, color.z * 0.1 * f32(arrayLength(&scene.spheres)), 1.0);
 }

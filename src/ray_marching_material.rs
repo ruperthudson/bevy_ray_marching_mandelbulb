@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
 // use crate::MandelbulbUniforms;
 use bevy::{
@@ -14,14 +14,17 @@ pub struct RayMarchingMaterialPlugin;
 
 impl Plugin for RayMarchingMaterialPlugin {
     fn build(&self, app: &mut App) {
+        let mut cam = RMCamera::default();
+        cam.transform.translate(Vec3::new(0.0, 1.0, 0.0), 0.5);
+        println!("{:?}", cam );
         app.add_plugins(Material2dPlugin::<RayMarchingMaterial>::default())
             .add_systems(PostUpdate, update_material)
-            .insert_resource(RMCamera::default());
+            .insert_resource(cam);
     }
 }
 
 #[derive(Component)]
-#[require(Transform4D)]
+#[require(HypTransform)]
 pub struct RMRenderable {
     pub visible: bool,
     pub material: RMMaterial,
@@ -84,36 +87,88 @@ impl Default for RMCameraSettings {
         Self {
             aspect_ratio: 1.0,
             max_iterations: 300,
-            max_dist: 1000.0,
+            max_dist: 100.0,
             min_dist: 0.0001,
             tan_fov: (7.0/18.0*PI).tan(),
         }
     }
 }
 
-#[derive(Debug, Clone, Component)]
-pub struct Transform4D {
-    pub translation: Vec4,
-    pub up: Vec4,
-    pub right: Vec4,
-    pub forward: Vec4,
+// #[derive(Debug, Clone, Component)]
+// pub struct Transform4D {
+//     pub translation: Vec4,
+//     pub up: Vec4,
+//     pub right: Vec4,
+//     pub forward: Vec4,
+// }
+
+// impl Default for Transform4D {
+//     fn default() -> Self {
+//         Self {
+//             translation: Vec4::ZERO.with_w(1.0),
+//             up: Vec4::ZERO.with_y(1.0),
+//             right: Vec4::ZERO.with_x(1.0),
+//             forward: Vec4::ZERO.with_z(-1.0),
+//         }
+//     }
+// }
+
+#[derive(Debug, Clone, Default)]
+pub struct LocalOrient {
+    yaw: f32,
+    pitch: f32,
 }
 
-impl Default for Transform4D {
-    fn default() -> Self {
-        Self {
-            translation: Vec4::ZERO.with_w(1.0),
-            up: Vec4::ZERO.with_y(1.0),
-            right: Vec4::ZERO.with_x(1.0),
-            forward: Vec4::ZERO.with_z(-1.0),
-        }
+impl LocalOrient {
+    pub fn mat3(&self) -> Mat3 {
+        Mat3::from_rotation_y(self.yaw).mul_mat3(&Mat3::from_rotation_x(-self.pitch))
     }
+
+    pub fn yaw(&self) -> f32 {
+        self.yaw
+    }
+
+    pub fn pitch(&self) -> f32 {
+        self.pitch
+    }
+
+    pub fn set_yaw(&mut self, yaw: f32) -> &mut Self {
+        self.yaw = yaw % TAU;
+        self
+    }
+
+    pub fn set_pitch(&mut self, pitch: f32) -> &mut Self {
+        self.pitch = pitch.clamp(-PI/2.0, PI/2.0);
+        self
+    }
+
+    pub fn add_mut_yaw(&mut self, delta_yaw: f32) -> &mut Self {
+        self.set_yaw(self.yaw() + delta_yaw);
+        self
+    }
+
+    pub fn add_mut_pitch(&mut self, delta_pitch: f32) -> &mut Self {
+        self.set_pitch(self.pitch() + delta_pitch);
+        self
+    }
+
+    pub fn into_global_orient(&self, transform: &HypTransform) -> [Vec4; 3] {
+        into_global_orient(self.mat3(), transform)
+    }
+}
+
+pub fn into_global_orient(mat3: Mat3, transform: &HypTransform) -> [Vec4; 3] {
+    let mat4 = Mat4::from_cols(transform.right, transform.up, transform.forward, Vec4::ZERO);
+    let res = mat4.mul_mat4(&Mat4::from_mat3(mat3));
+
+    [res.x_axis, res.y_axis, res.z_axis]
 }
 
 #[derive(Resource, Debug, Clone, Default)]
 pub struct RMCamera {
     pub transform: HypTransform,
-    pub settings: RMCameraSettings
+    pub settings: RMCameraSettings,
+    pub orient: LocalOrient,
 }
 
 #[derive(ShaderType, Clone, Debug)]
@@ -137,11 +192,12 @@ impl Into<PreparedRMCamera> for RMCamera {
 
 impl Into<PreparedRMCamera> for &RMCamera {
     fn into(self) -> PreparedRMCamera {
+        let orient = self.orient.into_global_orient(&self.transform);
         PreparedRMCamera {
             position: self.transform.translation,
-            up: self.transform.up,
-            right: self.transform.right,
-            forward: self.transform.forward,
+            forward: orient[2],
+            right: orient[0],
+            up: orient[1],
             aspect_ratio: self.settings.aspect_ratio,
             max_iterations: self.settings.max_iterations,
             max_dist: self.settings.max_dist,
@@ -169,9 +225,78 @@ fn update_material(
     mut rm_mats: ResMut<Assets<RayMarchingMaterial>>,
     mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
     rm_camera: Res<RMCamera>,
-    renderables: Query<(&Transform4D, &RMRenderable)>,
+    renderables: Query<(&HypTransform, &RMRenderable)>,
+    time: Res<Time>
 ) {
     let mut spheres = Vec::new();
+
+    let tf = rm_camera.transform
+        .clone()
+        .translate_forward(1.0)
+        .clone();
+
+    let tr = rm_camera.transform
+        .clone()
+        .translate_right(1.0)
+        .clone();
+
+    let tu = rm_camera.transform
+        .clone()
+        .translate_up(1.0)
+        .clone();
+
+    {
+        let trans = HypTransform::default()
+            .translate(Vec3::new(2.0, -1.0, 0.5), 2.0)
+            .clone();
+
+        let mat = Mat3::from_rotation_x(time.elapsed_secs() * 0.5)
+            .mul_mat3(&Mat3::from_rotation_y(time.elapsed_secs() * 0.1))
+            .mul_mat3(&Mat3::from_rotation_z(time.elapsed_secs() * 0.05));
+
+        let flow = |v: Vec3| {
+            trans.clone()
+                .translate(v, 0.5)
+                .clone()
+                .translation
+        };
+
+        let c1 = flow(mat.x_axis + mat.y_axis + mat.z_axis);
+        let c2 = flow(mat.x_axis + mat.y_axis - mat.z_axis);
+        let c3 = flow(mat.x_axis - mat.y_axis + mat.z_axis);
+        let c4 = flow(mat.x_axis - mat.y_axis - mat.z_axis);
+        let c5 = flow(- mat.x_axis + mat.y_axis + mat.z_axis);
+        let c6 = flow(- mat.x_axis + mat.y_axis - mat.z_axis);
+        let c7 = flow(- mat.x_axis - mat.y_axis + mat.z_axis);
+        let c8 = flow(- mat.x_axis - mat.y_axis - mat.z_axis);
+
+        for c in [c1, c2, c3, c4, c5, c6, c7, c8] {
+            spheres.push(PreparedRMSphere {
+                centre: c,
+                radius: 0.075,
+                material_id: 3,
+            })
+        }
+    }
+
+    spheres.push(PreparedRMSphere {
+        centre: tf.translation,
+        radius: 0.05,
+        material_id: 4,
+    });
+
+    spheres.push(PreparedRMSphere {
+        centre: tr.translation,
+        radius: 0.05,
+        material_id: 5,
+    });
+
+    spheres.push(PreparedRMSphere {
+        centre: tu.translation,
+        radius: 0.05,
+        material_id: 6,
+    });
+
     for (transform, renderable) in renderables.iter() {
         if !renderable.visible {
             continue;
@@ -225,21 +350,4 @@ impl Material2d for RayMarchingMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/ray_marching_material.wgsl".into()
     }
-}
-
-//Uniform data struct to move data from the "Game World" to the "Render World" with the ShaderType derived
-#[derive(ShaderType, Clone)]
-struct RayMarchingMaterialUniformData {
-    camera_position: Vec3,
-    camera_forward: Vec3,
-    camera_horizontal: Vec3,
-    camera_vertical: Vec3,
-    apsect_ratio: f32,
-    power: f32,
-    max_iterations: u32,
-    bailout: f32,
-    num_steps: u32,
-    min_dist: f32,
-    max_dist: f32,
-    zoom: f32,
 }

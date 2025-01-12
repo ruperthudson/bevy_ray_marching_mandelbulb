@@ -31,10 +31,13 @@ fn uniform_update_ui_system(
     let context = ctx.ctx_mut();
     egui::Window::new("Update Uniforms").show(context, |ui| {
         ui.horizontal(|ui| {
-            ui.label("Mandelbulb Max Iterations:");
+            ui.label(format!("Coords: [{}]", rm_camera.transform.translation));
+        });
+        ui.horizontal(|ui| {
+            ui.label("Max Iterations:");
             ui.add(egui::Slider::new(
                 &mut rm_camera.settings.max_iterations,
-                1..=128,
+                1..=1000,
             ));
         });
         ui.horizontal(|ui| {
